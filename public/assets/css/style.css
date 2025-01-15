@@ -1,0 +1,28 @@
+*{
+    font-family: 'poppins', sans-serif;
+}
+.navbar{
+    transform: none;
+}
+.sidebarMobile {
+    transition: transform 0.3s ease; /* Transisi yang lebih halus */
+  /* Mulai dari luar layar */
+}
+
+
+
+
+@media screen and (max-width: 768px) {
+    .overflow-x-auto-table {
+        overflow-x: auto;
+        width: 500px;
+    }
+    
+
+}
+@media screen and (max-width: 455px) {
+    .overflow-x-auto-table {
+        overflow-x: auto;
+        width: 400px;
+    }
+}
