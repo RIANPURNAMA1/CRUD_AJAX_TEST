@@ -12,19 +12,20 @@ class UserController extends Controller
 {
     public function getData()
     {
-        $users = User::with('roles')->select(['id', 'role_id', 'name', 'phone', 'email', 'address', 'photo', 'status']);
-    
+        $users = User::with('roles')
+            ->select(['id', 'role_id', 'name', 'phone', 'email', 'address', 'photo', 'status']);
+
         return DataTables::of($users)
             ->addColumn('role_id', function ($user) {
                 return $user->roles->name;
             })
             ->addColumn('photo', function ($user) {
-                // Using Storage::url to get the image URL
-                $photoUrl = Storage::url($user->photo);
-                return '<img src="' . $photoUrl . '" alt="' . $user->name . '" class="w-6 h-6 rounded-full">';
+                // ✅ Ganti Storage::url() dengan asset() untuk akses file dari public/
+                $photoUrl = $user->photo ? asset($user->photo) : asset('images/default.png');
+                return '<img src="' . e($photoUrl) . '" alt="' . e($user->name) . '" class="w-10 h-10 rounded-full object-cover">';
             })
             ->addColumn('action', function ($user) {
-                // Determining the status button
+                // Tombol status aktif / nonaktif
                 $statusButton = $user->status === 'active'
                     ? '<button class="bg-red-700 px-4 py-2 rounded-md text-white statusButton" data-id="' . e($user->id) . '" data-status="inactive">
                             <i class="fa-solid fa-times"></i> 
@@ -32,8 +33,7 @@ class UserController extends Controller
                     : '<button class="bg-green-700 px-4 py-2 rounded-md text-white statusButton" data-id="' . e($user->id) . '" data-status="active">
                             <i class="fa-solid fa-check"></i> 
                         </button>';
-    
-                // Return all action buttons in a div
+
                 return '<div class="flex gap-2">
                             <a href="#" class="text-green-500 flex items-center border-2 rounded-md px-3 py-1 text-2xl editUserButton" 
                                data-id="' . e($user->id) . '" 
@@ -45,15 +45,15 @@ class UserController extends Controller
                                data-photo="' . e($user->photo) . '">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </a>
-                            
+
                             <a href="#" class="text-red-500 flex items-center border-2 rounded-md px-3 py-1 text-2xl deleteUserButton" data-id="' . e($user->id) . '"> 
                                 <i class="fa-solid fa-trash-can"></i>
                             </a>
-                            
+
                             <a href="#" class="text-blue-500 flex items-center border-2 rounded-md px-3 py-1 text-2xl showUserButton" data-id="' . e($user->id) . '"> 
                                 <i class="fa-solid fa-eye"></i>
                             </a>
-                            
+
                             ' . $statusButton . '
                         </div>';
             })
@@ -87,32 +87,42 @@ class UserController extends Controller
         return response()->json($user); // Mengembalikan data pengguna dalam format JSON
     }
 
-    public function store(Request $request)
-    {
-        // Validasi input
-        $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
-            'role_id' => 'required|exists:roles,id',
-            'phone' => 'required|string|max:20',
-            'email' => 'required|email|unique:users,email', // Tambahkan validasi email dan unique
-            'address' => 'required|string|max:500',
-            'photo' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-        ]);
+   public function store(Request $request)
+{
+    // Validasi input
+    $validatedData = $request->validate([
+        'name' => 'required|string|max:255',
+        'role_id' => 'required|exists:roles,id',
+        'phone' => 'required|string|max:20',
+        'email' => 'required|email|unique:users,email',
+        'address' => 'required|string|max:500',
+        'photo' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+    ]);
 
-        // Upload foto ke storage
-        if ($request->hasFile('photo')) {
-            $validatedData['photo'] = $request->file('photo')->store('images/users', 'public');
-        }
+    // Upload foto langsung ke folder public/images/users
+    if ($request->hasFile('photo')) {
+        $image = $request->file('photo');
 
-        // Simpan data user ke database
-        $user = User::create($validatedData);
+        // Buat nama unik untuk file gambar
+        $imageName = time() . '_' . $image->getClientOriginalName();
 
-        // Return response JSON
-        return response()->json([
-            'success' => 'Data has been saved successfully.',
-            'data' => $user
-        ], 201); // Tambahkan status code 201 untuk Created
+        // Pindahkan ke folder public/images/users
+        $image->move(public_path('images/users'), $imageName);
+
+        // Simpan path relatif ke database
+        $validatedData['photo'] = 'images/users/' . $imageName;
     }
+
+    // Simpan data user ke database
+    $user = User::create($validatedData);
+
+    // Return response JSON
+    return response()->json([
+        'success' => 'Data has been saved successfully.',
+        'data' => $user
+    ], 201);
+}
+
 
     public function edit($id)
     {
